@@ -3,11 +3,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Extensions.Logging.Testing
 {
     public class TestSink : ITestSink
     {
+        private object _lock = new object();
+
         public TestSink(
             Func<WriteContext, bool> writeEnabled = null,
             Func<BeginScopeContext, bool> beginEnabled = null)
@@ -27,11 +30,22 @@ namespace Microsoft.Extensions.Logging.Testing
 
         public List<WriteContext> Writes { get; set; }
 
+        public WriteContext[] WritesFromSource<T>()
+        {
+            lock (_lock)
+            {
+                return Writes.Where(message => message.LoggerName.Equals(typeof(T).FullName, StringComparison.Ordinal)).ToArray();
+            }
+        }
+
         public void Write(WriteContext context)
         {
-            if (WriteEnabled == null || WriteEnabled(context))
+            lock (_lock)
             {
-                Writes.Add(context);
+                if (WriteEnabled == null || WriteEnabled(context))
+                {
+                    Writes.Add(context);
+                }
             }
         }
 
